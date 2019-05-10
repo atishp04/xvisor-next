@@ -98,6 +98,9 @@ int vmm_timer_event_restart(struct vmm_timer_event *ev);
 /** Stop a timer event */
 int vmm_timer_event_stop(struct vmm_timer_event *ev);
 
+/** Compute delta between cycles and current cycles and return in nanoseconds */
+u64 vmm_timer_delta_cycles_to_ns(u64 cycles);
+
 /** Current global timestamp (nanoseconds elapsed) */
 u64 vmm_timer_timestamp(void);
 
