@@ -84,6 +84,43 @@ static int guest_vserial_notification(struct vmm_notifier_block *nb,
 	return ret;
 }
 
+static int guest_check_hart_cap(void)
+{
+	struct vmm_devtree_node *dn, *cpus;
+	const char *str;
+	int rc = VMM_OK;
+	u32 hartid;
+
+	cpus = vmm_devtree_getnode(VMM_DEVTREE_PATH_SEPARATOR_STRING "cpus");
+	if (!cpus) {
+		vmm_printf("%s: Failed to find cpus node\n",
+			   __func__);
+		return VMM_ENOTAVAIL;
+	}
+
+	dn = NULL;
+	vmm_devtree_for_each_child(dn, cpus) {
+		str = NULL;
+		rc = vmm_devtree_read_string(dn,
+				"riscv,isa", &str);
+		if (rc || !str) {
+			rc = VMM_ENOTAVAIL;
+			break;
+		}
+		if (!strnchr(str, strlen(str), 'h')) {
+			rc = vmm_devtree_read_u32(dn,
+				VMM_DEVTREE_REG_ATTR_NAME, &hartid);
+			vmm_printf("'H' extension is not present for hart [%u]\n",
+				   hartid);
+			rc = VMM_EINVALID;
+			break;
+		}
+	}
+	vmm_devtree_dref_node(dn);
+
+	return rc;
+}
+
 int arch_guest_init(struct vmm_guest *guest)
 {
 	struct riscv_guest_priv *priv;
@@ -92,6 +129,9 @@ int arch_guest_init(struct vmm_guest *guest)
 	int rc;
 
 	if (!guest->reset_count) {
+		if (guest_check_hart_cap())
+			return VMM_EINVALID;
+
 		guest->arch_priv = vmm_malloc(sizeof(struct riscv_guest_priv));
 		if (!guest->arch_priv) {
 			return VMM_ENOMEM;
