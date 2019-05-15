@@ -52,6 +52,8 @@ int cpu_vcpu_sbi_ecall(struct vmm_vcpu *vcpu, ulong mcause,
 	int ret = 0;
 	u8 send;
 	u64 next_cycle, delta_ns;
+	int vcpuid;
+	struct vmm_vcpu *remote_vcpu;
 
 	switch (regs->a7) {
 	case SBI_SET_TIMER:
@@ -83,13 +85,21 @@ int cpu_vcpu_sbi_ecall(struct vmm_vcpu *vcpu, ulong mcause,
 		regs->a0 = VMM_ENOTSUPP;
 		break;
 	case SBI_CLEAR_IPI:
-		regs->a0 = VMM_ENOTSUPP;
+		vmm_vcpu_irq_clear(vcpu, RISCV_IRQ_SUPERVISOR_SOFTWARE);
 		break;
 	case SBI_SEND_IPI:
-		regs->a0 = VMM_ENOTSUPP;
+		for_each_set_bit(vcpuid, &regs->a0, BITS_PER_LONG) {
+			remote_vcpu = vmm_manager_guest_vcpu(vcpu->guest,
+							     vcpuid);
+			vmm_vcpu_irq_assert(remote_vcpu,
+					    RISCV_IRQ_SUPERVISOR_SOFTWARE, 0x0);
+		}
 		break;
 	case SBI_SHUTDOWN:
-		regs->a0 = VMM_ENOTSUPP;
+		ret = vmm_manager_guest_shutdown_request(vcpu->guest);
+		if (ret)
+			vmm_printf("%s: guest %s shutdown request failed with error = %d\n",
+				   __func__, vcpu->guest->name, ret);
 		break;
 	case SBI_REMOTE_FENCE_I:
 		__asm__ __volatile("fence.i");
