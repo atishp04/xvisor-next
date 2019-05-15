@@ -121,7 +121,10 @@ void do_handle_trap(arch_regs_t *regs, unsigned long cause)
 		}
 		break;
 	case CAUSE_SUPERVISOR_ECALL:
-		rc = cpu_vcpu_sbi_ecall(vcpu, cause, regs);
+		if (regs->hstatus & HSTATUS_SPV)
+			rc = cpu_vcpu_sbi_ecall(vcpu, cause, regs);
+		else
+			rc = VMM_EFAIL;
 		msg = "ecall handled";
 		break;
 	default:
